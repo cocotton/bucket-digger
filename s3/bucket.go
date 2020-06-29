@@ -1,18 +1,18 @@
 package s3
 
 import (
+	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 // Bucket represents an S3 bucket with added information compared to the github.com/aws/aws-sdk-go/service/s3.Bucket object
 type Bucket struct {
-	// Date the bucket was created.
 	CreationDate time.Time
-
-	// The name of the bucket.
-	Name string
+	Name         string
+	Region       string
 }
 
 // ListBuckets lists and returns the buckets in the S3 client's region
@@ -33,4 +33,15 @@ func ListBuckets(client s3iface.S3API) ([]*Bucket, error) {
 	}
 
 	return buckets, nil
+}
+
+// GetBucketRegion gets the bucket's region
+func (b *Bucket) GetBucketRegion(client s3iface.S3API) (string, error) {
+	ctx := context.Background()
+	region, err := s3manager.GetBucketRegionWithClient(ctx, client, b.Name)
+	if err != nil {
+		return "", err
+	}
+
+	return region, nil
 }

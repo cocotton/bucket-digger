@@ -18,7 +18,7 @@ func exitErrorf(msg string, args ...interface{}) {
 func main() {
 	// Initialize AWS session in the provided region
 	session, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2")},
+		Region: aws.String("us-east-1")},
 	)
 	if err != nil {
 		exitErrorf("Unable to initialize the AWS session, %v", err)
@@ -33,7 +33,16 @@ func main() {
 		exitErrorf("Unable to list the buckets, %v", err)
 	}
 
+	// Add the bucket region to each bucket objects
 	for _, bucket := range buckets {
-		fmt.Printf("Bucket: %v, Created: %v\n", bucket.Name, bucket.CreationDate)
+		region, err := bucket.GetBucketRegion(client)
+		if err != nil {
+			exitErrorf("Unable to fetch the region for bucket %v", bucket.Name)
+		}
+		bucket.Region = region
+	}
+
+	for _, bucket := range buckets {
+		fmt.Printf("Bucket: %v, Region: %v Created: %v\n", bucket.Name, bucket.Region, bucket.CreationDate)
 	}
 }
