@@ -2,7 +2,6 @@ package s3
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,14 +42,16 @@ func ListBuckets(client s3iface.S3API) ([]*Bucket, error) {
 }
 
 // GetBucketRegion gets the bucket's region
-func (b *Bucket) GetBucketRegion(client s3iface.S3API) (string, error) {
+func (b *Bucket) GetBucketRegion(client s3iface.S3API) error {
 	ctx := context.Background()
 	region, err := s3manager.GetBucketRegionWithClient(ctx, client, b.Name)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return region, nil
+	b.Region = region
+
+	return nil
 }
 
 // GetBucketObjectsMetrics gets the number of objects in the bucket
@@ -59,7 +60,6 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 		Bucket:  aws.String(b.Name),
 		MaxKeys: aws.Int64(400),
 	}
-	fmt.Println(params.GoString())
 
 	var objects []*s3.Object
 	var sizeBytes int64

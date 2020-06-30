@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -17,8 +19,17 @@ func exitErrorf(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func printErrorf(msg string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, msg+"\n", args...)
+}
+
 func main() {
-	// Initialize AWS session in the provided region
+	// Initialize the cli flags
+	var workers int
+	flag.IntVar(&workers, "workers", 10, "the number of workers digging through S3")
+	flag.Parse()
+
+	// Initialize the AWS session in the defaultRegion
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(defaultRegion)},
 	)
@@ -26,7 +37,7 @@ func main() {
 		exitErrorf("Unable to initialize the AWS session, %v", err)
 	}
 
-	// Create S3 service client
+	// Initialize the S3 service client in the defaultRegion
 	client := awss3.New(sess)
 
 	// List the buckets in the S3 service client's region
@@ -35,40 +46,57 @@ func main() {
 		exitErrorf("Unable to list the buckets, %v", err)
 	}
 
+	// Make a map containing an S3 service client for every buckets regions
 	clientMap := make(map[string]*awss3.S3)
 	clientMap[defaultRegion] = client
 
-	// Add the bucket's region to each bucket objects
-	for _, bucket := range buckets {
-		region, err := bucket.GetBucketRegion(client)
-		if err != nil {
-			exitErrorf("Unable to fetch the region for bucket %v", bucket.Name)
-		}
-		bucket.Region = region
+	// Make the channels that will be used by the workers to find out the buckets regions
+	b := make(chan *s3.Bucket, len(buckets))
+	//bRegion := make(chan *s3.Bucket, len(buckets))
+	var wg sync.WaitGroup
 
-		// Create a client for a region not found in clientMap
-		if _, ok := clientMap[region]; !ok {
+	// Warm up the workers
+	for i := 1; i <= workers; i++ {
+		wg.Add(1)
 
-			sess, err = session.NewSession(&aws.Config{
-				Region: aws.String(region)},
-			)
-			if err != nil {
-				exitErrorf("Unable to initialize the AWS session, %v", err)
+		go func(c *awss3.S3, id int) {
+			defer wg.Done()
+
+			for bucket := range b {
+				// Get the bucket's region and add it to its attributes
+				err := bucket.GetBucketRegion(client)
+				if err != nil {
+					printErrorf("Unable to fetch the region for bucket %v, skipping it", bucket.Name)
+					continue
+				} else {
+					// Create a client for a region not found in clientMap
+					if _, ok := clientMap[bucket.Region]; !ok {
+						sess, err = session.NewSession(&aws.Config{
+							Region: aws.String(bucket.Region)},
+						)
+						if err != nil {
+							printErrorf("Unable to initialize the AWS session, %v", err)
+						}
+						// Create S3 service client
+						client = awss3.New(sess)
+						clientMap[bucket.Region] = client
+					}
+
+				}
+
+				// Get the bucket objects' metrics
+				err = bucket.GetBucketObjectsMetrics(clientMap[bucket.Region])
+				if err != nil {
+					printErrorf("Unable to get the objects metrics for bucket %v, skipping it", bucket.Name)
+				}
 			}
-
-			// Create S3 service client
-			client = awss3.New(sess)
-
-			clientMap[region] = client
-		}
+		}(client, i)
 	}
 
-	// Add the bucket's object count to each buckets
+	// Add the buckets to the job channel
 	for _, bucket := range buckets {
-		err = bucket.GetBucketObjectsMetrics(clientMap[bucket.Region])
-		if err != nil {
-			exitErrorf("Unable to get the objects metrics for bucket %v", bucket.Name)
-		}
+		b <- bucket
 	}
-
+	close(b)
+	wg.Wait()
 }
