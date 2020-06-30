@@ -13,12 +13,13 @@ import (
 
 // Bucket represents an S3 bucket with added information compared to the github.com/aws/aws-sdk-go/service/s3.Bucket object
 type Bucket struct {
-	CreationDate time.Time
-	ObjectCount  int
-	LastModified time.Time
-	Name         string
-	Region       string
-	SizeBytes    int64
+	CreationDate        time.Time
+	ObjectCount         int
+	LastModified        time.Time
+	Name                string
+	Region              string
+	SizeBytes           int64
+	StorageClassesStats map[string]float64
 }
 
 // ListBuckets lists and returns the buckets in the S3 client's region
@@ -64,6 +65,7 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 	var objects []*s3.Object
 	var sizeBytes int64
 	var lastModified time.Time
+	storageClasses := map[string]float64{}
 
 	err := client.ListObjectsPages(params,
 		func(page *s3.ListObjectsOutput, last bool) bool {
@@ -73,6 +75,7 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 				if obj.LastModified.After(lastModified) {
 					lastModified = *obj.LastModified
 				}
+				storageClasses[aws.StringValue(obj.StorageClass)]++
 			}
 			return true
 		},
@@ -81,9 +84,14 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 		return err
 	}
 
+	for class, count := range storageClasses {
+		storageClasses[class] = count / float64(len(objects)) * 100
+	}
+
 	b.ObjectCount = len(objects)
 	b.SizeBytes = sizeBytes
 	b.LastModified = lastModified
+	b.StorageClassesStats = storageClasses
 
 	return nil
 }

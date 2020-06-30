@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -49,6 +50,14 @@ func convertSize(sizeBytes int64, sizeUnit string) float64 {
 		"eb": math.Pow(1000, 6),
 	}
 	return float64(sizeBytes) / sizeMap[sizeUnit]
+}
+
+func formatStorageClasses(storageClasses map[string]float64) string {
+	b := new(bytes.Buffer)
+	for class, value := range storageClasses {
+		fmt.Fprintf(b, "%s(%.1f%%) ", class, value)
+	}
+	return b.String()
 }
 
 func main() {
@@ -138,12 +147,14 @@ func main() {
 
 	// Output the buckets to the terminal
 	t := tabby.New()
-	t.AddHeader("NAME", "REGION", "NUMBER OF FILES", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "CREATED ON", "LAST MODIFIED")
+	t.AddHeader("NAME", "REGION", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for _, bucket := range buckets {
+
 		t.AddLine(bucket.Name,
 			bucket.Region,
-			bucket.ObjectCount,
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
+			bucket.ObjectCount,
+			formatStorageClasses(bucket.StorageClassesStats),
 			bucket.CreationDate,
 			bucket.LastModified)
 	}
