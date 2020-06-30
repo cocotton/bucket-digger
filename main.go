@@ -1,14 +1,18 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
+	"github.com/cheynewallace/tabby"
 	"github.com/cocotton/bucket-digger/s3"
 )
 
@@ -23,11 +27,43 @@ func printErrorf(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, msg+"\n", args...)
 }
 
+func validateFlags(sizeUnit string) error {
+	validUnits := []string{"b", "kb", "mb", "gb", "tb", "pb", "eb"}
+	for _, validUnit := range validUnits {
+		if validUnit == strings.ToLower(sizeUnit) {
+			return nil
+		}
+	}
+
+	return errors.New("Wrong size unit provided")
+}
+
+func convertSize(sizeBytes int64, sizeUnit string) float64 {
+	sizeMap := map[string]float64{
+		"b":  1,
+		"kb": 1000,
+		"mb": math.Pow(1000, 2),
+		"gb": math.Pow(1000, 3),
+		"tb": math.Pow(1000, 4),
+		"pb": math.Pow(1000, 5),
+		"eb": math.Pow(1000, 6),
+	}
+	return float64(sizeBytes) / sizeMap[sizeUnit]
+}
+
 func main() {
 	// Initialize the cli flags
+	var sizeUnit string
 	var workers int
-	flag.IntVar(&workers, "workers", 10, "the number of workers digging through S3")
+	flag.StringVar(&sizeUnit, "unit", "mb", "The unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
+	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
 	flag.Parse()
+
+	// Validate the flags
+	err := validateFlags(sizeUnit)
+	if err != nil {
+		exitErrorf(err.Error())
+	}
 
 	// Initialize the AWS session in the defaultRegion
 	sess, err := session.NewSession(&aws.Config{
@@ -99,4 +135,17 @@ func main() {
 	}
 	close(b)
 	wg.Wait()
+
+	// Output the buckets to the terminal
+	t := tabby.New()
+	t.AddHeader("NAME", "REGION", "NUMBER OF FILES", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "CREATED ON", "LAST MODIFIED")
+	for _, bucket := range buckets {
+		t.AddLine(bucket.Name,
+			bucket.Region,
+			bucket.ObjectCount,
+			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
+			bucket.CreationDate,
+			bucket.LastModified)
+	}
+	t.Print()
 }
