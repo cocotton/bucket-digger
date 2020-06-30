@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -49,6 +50,13 @@ func validateGroupByFlag(group string) error {
 	return errors.New("Wrong group provided")
 }
 
+func validateFilterFlag(filter string) error {
+	if strings.ToLower(filter) == "name" || strings.ToLower(filter) == "storageclasses" {
+		return nil
+	}
+	return errors.New("Wrong filter provided")
+}
+
 func convertSize(sizeBytes int64, sizeUnit string) float64 {
 	sizeMap := map[string]float64{
 		"b":  1,
@@ -72,10 +80,14 @@ func formatStorageClasses(storageClasses map[string]float64) string {
 
 func main() {
 	// Initialize the cli flags
-	var sizeUnit, groupBy string
+	var filter, groupBy, nameRegex, regex, sizeUnit string
 	var workers int
+
+	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: name, storageclasses")
 	flag.StringVar(&groupBy, "group", "", "Group the buckets by - region")
-	flag.StringVar(&sizeUnit, "unit", "mb", "The unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
+	flag.StringVar(&nameRegex, "nameregex", "", "Return the buckets with a name matching the nameregex regex (make sure to 'quote' it)")
+	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
+	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
 	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
 	flag.Parse()
 
@@ -89,6 +101,23 @@ func main() {
 		err = validateGroupByFlag(groupBy)
 		if err != nil {
 			exitErrorf(err.Error())
+		}
+	}
+
+	var compiledRegex *regexp.Regexp
+	if filter != "" || regex != "" {
+		if filter != "" && regex != "" {
+			err = validateFilterFlag(filter)
+			if err != nil {
+				exitErrorf(err.Error())
+			}
+
+			compiledRegex, err = regexp.Compile(regex)
+			if err != nil {
+				exitErrorf("Unable to compile the provided regex, %v", err)
+			}
+		} else {
+			exitErrorf("The -filter and -regex must be used together")
 		}
 	}
 
@@ -113,19 +142,28 @@ func main() {
 	clientMap := make(map[string]*awss3.S3)
 	clientMap[defaultRegion] = client
 
-	// Make the channels that will be used by the workers to find out the buckets regions
-	b := make(chan *s3.Bucket, len(buckets))
-	//bRegion := make(chan *s3.Bucket, len(buckets))
-	var wg sync.WaitGroup
+	// Make the channel from where the workers will fetch the butckets they need to process
+	bucketChan := make(chan *s3.Bucket, len(buckets))
 
+	// Make the slice thay will be filled with the filtered buckets
+	filteredBuckets := make([]*s3.Bucket, 0)
+
+	var wg sync.WaitGroup
 	// Warm up the workers
 	for i := 1; i <= workers; i++ {
 		wg.Add(1)
 
-		go func(c *awss3.S3, id int) {
+		go func() {
 			defer wg.Done()
 
-			for bucket := range b {
+			for bucket := range bucketChan {
+				// Check if the name filter's regex matches the current bucket's name, skip loop if it does not
+				if strings.ToLower(filter) == "name" {
+					if !compiledRegex.Match([]byte(bucket.Name)) {
+						continue
+					}
+				}
+
 				// Get the bucket's region and add it to its attributes
 				err := bucket.GetBucketRegion(client)
 				if err != nil {
@@ -134,15 +172,15 @@ func main() {
 				} else {
 					// Create a client for a region not found in clientMap
 					if _, ok := clientMap[bucket.Region]; !ok {
-						sess, err = session.NewSession(&aws.Config{
+						regionSess, err := session.NewSession(&aws.Config{
 							Region: aws.String(bucket.Region)},
 						)
 						if err != nil {
 							printErrorf("Unable to initialize the AWS session, %v", err)
 						}
 						// Create S3 service client
-						client = awss3.New(sess)
-						clientMap[bucket.Region] = client
+						regionClient := awss3.New(regionSess)
+						clientMap[bucket.Region] = regionClient
 					}
 
 				}
@@ -152,26 +190,41 @@ func main() {
 				if err != nil {
 					printErrorf("Unable to get the objects metrics for bucket %v, skipping it", bucket.Name)
 				}
+
+				// Check if the current bucket has a storage class matching the regex used to filter the buckets
+				if strings.ToLower(filter) == "storageclasses" {
+					hasStorageClass := false
+					for class := range bucket.StorageClassesStats {
+						if compiledRegex.Match([]byte(class)) {
+							hasStorageClass = true
+						}
+					}
+					if !hasStorageClass {
+						continue
+					}
+				}
+
+				filteredBuckets = append(filteredBuckets, bucket)
 			}
-		}(client, i)
+		}()
 	}
 
 	// Add the buckets to the job channel
 	for _, bucket := range buckets {
-		b <- bucket
+		bucketChan <- bucket
 	}
-	close(b)
+	close(bucketChan)
 	wg.Wait()
 
 	// Group the buckets by the provided group flag
 	if groupBy == "region" {
-		sort.SliceStable(buckets, func(i, j int) bool { return buckets[i].Region < buckets[j].Region })
+		sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Region < filteredBuckets[j].Region })
 	}
 
 	// Output the buckets to the terminal
 	t := tabby.New()
 	t.AddHeader("NAME", "REGION", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
-	for _, bucket := range buckets {
+	for _, bucket := range filteredBuckets {
 		t.AddLine(bucket.Name,
 			bucket.Region,
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
