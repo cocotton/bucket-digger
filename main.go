@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -28,15 +29,24 @@ func printErrorf(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, msg+"\n", args...)
 }
 
-func validateFlags(sizeUnit string) error {
+func validateSizeUnitFlag(sizeUnit string) error {
 	validUnits := []string{"b", "kb", "mb", "gb", "tb", "pb", "eb"}
 	for _, validUnit := range validUnits {
 		if validUnit == strings.ToLower(sizeUnit) {
 			return nil
 		}
 	}
-
 	return errors.New("Wrong size unit provided")
+}
+
+func validateGroupByFlag(group string) error {
+	validGroups := []string{"region"}
+	for _, validGroup := range validGroups {
+		if validGroup == strings.ToLower(group) {
+			return nil
+		}
+	}
+	return errors.New("Wrong group provided")
 }
 
 func convertSize(sizeBytes int64, sizeUnit string) float64 {
@@ -62,16 +72,24 @@ func formatStorageClasses(storageClasses map[string]float64) string {
 
 func main() {
 	// Initialize the cli flags
-	var sizeUnit string
+	var sizeUnit, groupBy string
 	var workers int
+	flag.StringVar(&groupBy, "group", "", "Group the buckets by - region")
 	flag.StringVar(&sizeUnit, "unit", "mb", "The unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
 	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
 	flag.Parse()
 
 	// Validate the flags
-	err := validateFlags(sizeUnit)
+	err := validateSizeUnitFlag(sizeUnit)
 	if err != nil {
 		exitErrorf(err.Error())
+	}
+
+	if len(groupBy) > 0 {
+		err = validateGroupByFlag(groupBy)
+		if err != nil {
+			exitErrorf(err.Error())
+		}
 	}
 
 	// Initialize the AWS session in the defaultRegion
@@ -145,11 +163,15 @@ func main() {
 	close(b)
 	wg.Wait()
 
+	// Group the buckets by the provided group flag
+	if groupBy == "region" {
+		sort.SliceStable(buckets, func(i, j int) bool { return buckets[i].Region < buckets[j].Region })
+	}
+
 	// Output the buckets to the terminal
 	t := tabby.New()
 	t.AddHeader("NAME", "REGION", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for _, bucket := range buckets {
-
 		t.AddLine(bucket.Name,
 			bucket.Region,
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
