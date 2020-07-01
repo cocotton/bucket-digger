@@ -46,8 +46,8 @@ func ListBuckets(client s3iface.S3API) ([]*Bucket, error) {
 	return buckets, nil
 }
 
-// GetBucketRegion gets the bucket's region
-func (b *Bucket) GetBucketRegion(client s3iface.S3API) error {
+// SetBucketRegion sets the bucket's region
+func (b *Bucket) SetBucketRegion(client s3iface.S3API) error {
 	ctx := context.Background()
 	region, err := s3manager.GetBucketRegionWithClient(ctx, client, b.Name)
 	if err != nil {
@@ -59,8 +59,8 @@ func (b *Bucket) GetBucketRegion(client s3iface.S3API) error {
 	return nil
 }
 
-// GetBucketObjectsMetrics gets the number of objects in the bucket
-func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
+// SetBucketObjectsMetrics sets the metrics related to a bucket's objects
+func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
 	params := &s3.ListObjectsInput{
 		Bucket:  aws.String(b.Name),
 		MaxKeys: aws.Int64(400),
@@ -100,8 +100,8 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 	return nil
 }
 
-// GetBucketCostOverPeriod gets the bucket's cost from today up to X days ago
-func (b *Bucket) GetBucketCostOverPeriod(client costexploreriface.CostExplorerAPI, period int) error {
+// SetBucketCostOverPeriod sets the bucket's cost from now up to X days ago
+func (b *Bucket) SetBucketCostOverPeriod(client costexploreriface.CostExplorerAPI, period int) error {
 	now := time.Now().AddDate(0, 0, 1)
 	then := now.AddDate(0, 0, -period)
 
