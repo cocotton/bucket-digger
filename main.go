@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"flag"
 	"fmt"
-	"math"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -21,71 +17,13 @@ import (
 
 const defaultRegion = "us-east-1"
 
-func exitErrorf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-	os.Exit(1)
-}
-
-func printErrorf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-}
-
-func validateSizeUnitFlag(sizeUnit string) error {
-	validUnits := []string{"b", "kb", "mb", "gb", "tb", "pb", "eb"}
-	for _, validUnit := range validUnits {
-		if validUnit == strings.ToLower(sizeUnit) {
-			return nil
-		}
-	}
-	return errors.New("Wrong size unit provided")
-}
-
-func validateGroupByFlag(group string) error {
-	validGroups := []string{"region"}
-	for _, validGroup := range validGroups {
-		if validGroup == strings.ToLower(group) {
-			return nil
-		}
-	}
-	return errors.New("Wrong group provided")
-}
-
-func validateFilterFlag(filter string) error {
-	if strings.ToLower(filter) == "name" || strings.ToLower(filter) == "storageclasses" {
-		return nil
-	}
-	return errors.New("Wrong filter provided")
-}
-
-func convertSize(sizeBytes int64, sizeUnit string) float64 {
-	sizeMap := map[string]float64{
-		"b":  1,
-		"kb": 1000,
-		"mb": math.Pow(1000, 2),
-		"gb": math.Pow(1000, 3),
-		"tb": math.Pow(1000, 4),
-		"pb": math.Pow(1000, 5),
-		"eb": math.Pow(1000, 6),
-	}
-	return float64(sizeBytes) / sizeMap[sizeUnit]
-}
-
-func formatStorageClasses(storageClasses map[string]float64) string {
-	b := new(bytes.Buffer)
-	for class, value := range storageClasses {
-		fmt.Fprintf(b, "%s(%.1f%%) ", class, value)
-	}
-	return b.String()
-}
-
 func main() {
 	// Initialize the cli flags
-	var filter, groupBy, nameRegex, regex, sizeUnit string
+	var filter, groupBy, regex, sizeUnit string
 	var workers int
 
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: name, storageclasses")
 	flag.StringVar(&groupBy, "group", "", "Group the buckets by - region")
-	flag.StringVar(&nameRegex, "nameregex", "", "Return the buckets with a name matching the nameregex regex (make sure to 'quote' it)")
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
 	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
 	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
