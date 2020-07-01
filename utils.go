@@ -78,6 +78,14 @@ func validateCostPeriodFlag(costPeriod int) error {
 	return nil
 }
 
+// validateWorkersFlag validates that the provided workers count is bigger than 0
+func validateWorkersFlag(workers int) error {
+	if workers < 1 {
+		return fmt.Errorf("Error - '%v' is not a valid '-workers' value, it must be bigger than 0", workers)
+	}
+	return nil
+}
+
 // formatStorageClasses takes all the storage classes as well as their usage statistics and build a string containing this information
 func formatStorageClasses(storageClasses map[string]float64) string {
 	b := new(bytes.Buffer)
