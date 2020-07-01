@@ -108,6 +108,35 @@ func TestValidateSortFlag(t *testing.T) {
 	}
 }
 
+func TestValidateCostPeriodFlag(t *testing.T) {
+	var tests = []struct {
+		costPeriod int
+		err        bool
+	}{
+		{
+			costPeriod: 30,
+			err:        false,
+		},
+		{
+			costPeriod: 400,
+			err:        true,
+		},
+		{
+			costPeriod: -1,
+			err:        true,
+		},
+	}
+
+	for _, test := range tests {
+		err := validateCostPeriodFlag(test.costPeriod)
+		if err != nil && test.err == false {
+			t.Errorf("validateCostPeriodFlag(): FAILED, Expected no error - Received: %v", err)
+		} else if err == nil && test.err {
+			t.Errorf("validateCostPeriodFlag(): FAILED, Expected an error - Received: %v", err)
+		}
+	}
+}
+
 func TestFormatStorageClasses(t *testing.T) {
 	var emptyFloat float64
 	var tests = []struct {

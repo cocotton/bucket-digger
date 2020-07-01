@@ -70,6 +70,14 @@ func validateSortFlag(sortFlag string) error {
 	return fmt.Errorf("Error - '%v' is not a valid '-sort' value", sortFlag)
 }
 
+// validateCostPeriodFlag validates that the provided costPeriod is between 1 and 365
+func validateCostPeriodFlag(costPeriod int) error {
+	if costPeriod > 365 || costPeriod < 1 {
+		return fmt.Errorf("Error - '%v' is not a valid '-costperiod' value, it must be between 1 and 365", costPeriod)
+	}
+	return nil
+}
+
 // formatStorageClasses takes all the storage classes as well as their usage statistics and build a string containing this information
 func formatStorageClasses(storageClasses map[string]float64) string {
 	b := new(bytes.Buffer)

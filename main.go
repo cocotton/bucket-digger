@@ -24,7 +24,7 @@ func main() {
 	var filter, regex, sortasc, sortdes, sizeUnit string
 	var costPeriod, workers int
 
-	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today)")
+	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today). Max value: 365")
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
 	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
@@ -35,6 +35,11 @@ func main() {
 
 	// Validate the flags
 	err := validateSizeUnitFlag(sizeUnit)
+	if err != nil {
+		exitErrorf(err.Error())
+	}
+
+	err = validateCostPeriodFlag(costPeriod)
 	if err != nil {
 		exitErrorf(err.Error())
 	}
