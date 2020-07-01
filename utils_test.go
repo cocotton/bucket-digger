@@ -56,7 +56,11 @@ func TestValidateFilterFlag(t *testing.T) {
 		err    bool
 	}{
 		{
-			filter: "storageclasses",
+			filter: "name",
+			err:    false,
+		},
+		{
+			filter: "STORAGECLASSES",
 			err:    false,
 		},
 		{
@@ -71,6 +75,35 @@ func TestValidateFilterFlag(t *testing.T) {
 			t.Errorf("validateFilterFlag(): FAILED, Expected no error - Received: %v", err)
 		} else if err == nil && test.err {
 			t.Errorf("validateFilterFlag(): FAILED, Expected an error - Received: %v", err)
+		}
+	}
+}
+
+func TestValidateSortFlag(t *testing.T) {
+	var tests = []struct {
+		sortFlag string
+		err      bool
+	}{
+		{
+			sortFlag: "region",
+			err:      false,
+		},
+		{
+			sortFlag: "SIZE",
+			err:      false,
+		},
+		{
+			sortFlag: "badSortFlag",
+			err:      true,
+		},
+	}
+
+	for _, test := range tests {
+		err := validateSortFlag(test.sortFlag)
+		if err != nil && test.err == false {
+			t.Errorf("validateSortFlag(): FAILED, Expected no error - Received: %v", err)
+		} else if err == nil && test.err {
+			t.Errorf("validateSortFlag(): FAILED, Expected an error - Received: %v", err)
 		}
 	}
 }

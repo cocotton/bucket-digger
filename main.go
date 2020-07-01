@@ -19,13 +19,14 @@ const defaultRegion = "us-east-1"
 
 func main() {
 	// Initialize the cli flags
-	var filter, groupBy, regex, sizeUnit string
+	var filter, regex, sortasc, sortdes, sizeUnit string
 	var workers int
 
-	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: name, storageclasses")
-	flag.StringVar(&groupBy, "group", "", "Group the buckets by - region")
+	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
-	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size - b, kb, mb, gb, tb, pb, eb")
+	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size. Possible values: b, kb, mb, gb, tb, pb, eb")
+	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
+	flag.StringVar(&sortdes, "sortdes", "", "The field to sort (descendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
 	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
 	flag.Parse()
 
@@ -33,13 +34,6 @@ func main() {
 	err := validateSizeUnitFlag(sizeUnit)
 	if err != nil {
 		exitErrorf(err.Error())
-	}
-
-	if len(groupBy) > 0 {
-		err = validateGroupByFlag(groupBy)
-		if err != nil {
-			exitErrorf(err.Error())
-		}
 	}
 
 	var compiledRegex *regexp.Regexp
@@ -56,6 +50,19 @@ func main() {
 			}
 		} else {
 			exitErrorf("The -filter and -regex must be used together")
+		}
+	}
+
+	if len(sortasc) > 0 || len(sortdes) > 0 {
+		if len(sortasc) > 0 && len(sortdes) > 0 {
+			exitErrorf("Error - cannot pass both -sortasc and -sortdes flags at the same time")
+		} else if len(sortasc) > 0 {
+			err = validateSortFlag(sortasc)
+		} else if len(sortdes) > 0 {
+			err = validateSortFlag(sortdes)
+		}
+		if err != nil {
+			exitErrorf(err.Error())
 		}
 	}
 
@@ -154,22 +161,52 @@ func main() {
 	close(bucketChan)
 	wg.Wait()
 
-	// Group the buckets by the provided group flag
-	if groupBy == "region" {
-		sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Region < filteredBuckets[j].Region })
+	// Sort the bucket list according to the cli flag
+	if len(sortasc) > 0 {
+		switch sortasc {
+		case "name":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Name < filteredBuckets[j].Name })
+		case "region":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Region < filteredBuckets[j].Region })
+		case "size":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].SizeBytes < filteredBuckets[j].SizeBytes })
+		case "files":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].ObjectCount < filteredBuckets[j].ObjectCount })
+		case "created":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].CreationDate.Before(filteredBuckets[j].CreationDate) })
+		case "modified":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].LastModified.Before(filteredBuckets[j].LastModified) })
+		}
+	} else if len(sortdes) > 0 {
+		switch sortdes {
+		case "name":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Name > filteredBuckets[j].Name })
+		case "region":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Region > filteredBuckets[j].Region })
+		case "size":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].SizeBytes > filteredBuckets[j].SizeBytes })
+		case "files":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].ObjectCount > filteredBuckets[j].ObjectCount })
+		case "created":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].CreationDate.After(filteredBuckets[j].CreationDate) })
+		case "modified":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].LastModified.After(filteredBuckets[j].LastModified) })
+		}
 	}
 
 	// Output the buckets to the terminal
 	t := tabby.New()
 	t.AddHeader("NAME", "REGION", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for _, bucket := range filteredBuckets {
-		t.AddLine(bucket.Name,
+		t.AddLine(
+			bucket.Name,
 			bucket.Region,
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
 			bucket.ObjectCount,
 			formatStorageClasses(bucket.StorageClassesStats),
 			bucket.CreationDate,
-			bucket.LastModified)
+			bucket.LastModified,
+		)
 	}
 	t.Print()
 }
