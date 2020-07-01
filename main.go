@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/cheynewallace/tabby"
 	"github.com/cocotton/bucket-digger/s3"
@@ -20,13 +22,14 @@ const defaultRegion = "us-east-1"
 func main() {
 	// Initialize the cli flags
 	var filter, regex, sortasc, sortdes, sizeUnit string
-	var workers int
+	var costPeriod, workers int
 
+	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today)")
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
-	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size. Possible values: b, kb, mb, gb, tb, pb, eb")
 	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
 	flag.StringVar(&sortdes, "sortdes", "", "The field to sort (descendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
+	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size. Possible values: b, kb, mb, gb, tb, pb, eb")
 	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
 	flag.Parse()
 
@@ -76,6 +79,8 @@ func main() {
 
 	// Initialize the S3 service client in the defaultRegion
 	client := awss3.New(sess)
+
+	cExplorerClient := costexplorer.New(sess)
 
 	// List the buckets in the S3 service client's region
 	buckets, err := s3.ListBuckets(client)
@@ -149,6 +154,11 @@ func main() {
 					}
 				}
 
+				err = bucket.GetBucketCostOverPeriod(cExplorerClient, costPeriod)
+				if err != nil {
+					printErrorf("Error - Unable to get cost for bucket: %v, error: %v", bucket.Name, err)
+				}
+
 				filteredBuckets = append(filteredBuckets, bucket)
 			}
 		}()
@@ -196,16 +206,17 @@ func main() {
 
 	// Output the buckets to the terminal
 	t := tabby.New()
-	t.AddHeader("NAME", "REGION", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
+	t.AddHeader("NAME", "REGION", "COST $USD("+strconv.Itoa(costPeriod)+"days)", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for _, bucket := range filteredBuckets {
 		t.AddLine(
 			bucket.Name,
 			bucket.Region,
+			fmt.Sprintf("%f", bucket.Cost),
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
 			bucket.ObjectCount,
 			formatStorageClasses(bucket.StorageClassesStats),
-			bucket.CreationDate,
-			bucket.LastModified,
+			bucket.CreationDate.Format("02-01-2006"),
+			bucket.LastModified.Format("02-01-2006"),
 		)
 	}
 	t.Print()

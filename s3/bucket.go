@@ -2,10 +2,13 @@ package s3
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 
+	"github.com/aws/aws-sdk-go/service/costexplorer"
+	"github.com/aws/aws-sdk-go/service/costexplorer/costexploreriface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -13,6 +16,7 @@ import (
 
 // Bucket represents an S3 bucket with added information compared to the github.com/aws/aws-sdk-go/service/s3.Bucket object
 type Bucket struct {
+	Cost                float64
 	CreationDate        time.Time
 	ObjectCount         int
 	LastModified        time.Time
@@ -92,6 +96,52 @@ func (b *Bucket) GetBucketObjectsMetrics(client s3iface.S3API) error {
 	b.SizeBytes = sizeBytes
 	b.LastModified = lastModified
 	b.StorageClassesStats = storageClasses
+
+	return nil
+}
+
+// GetBucketCostOverPeriod gets the bucket's cost from today up to X days ago
+func (b *Bucket) GetBucketCostOverPeriod(client costexploreriface.CostExplorerAPI, period int) error {
+	now := time.Now().AddDate(0, 0, 1)
+	then := now.AddDate(0, 0, -period)
+
+	param := &costexplorer.GetCostAndUsageInput{
+		Filter: &costexplorer.Expression{
+			And: []*costexplorer.Expression{
+				{
+					Dimensions: &costexplorer.DimensionValues{
+						Key:    aws.String("SERVICE"),
+						Values: []*string{aws.String("Amazon Simple Storage Service")},
+					},
+				},
+				{
+					Tags: &costexplorer.TagValues{
+						Key:    aws.String("name"),
+						Values: []*string{aws.String(b.Name)},
+					},
+				},
+			},
+		},
+		Granularity: aws.String("MONTHLY"),
+		Metrics:     []*string{aws.String("AmortizedCost")},
+		TimePeriod: &costexplorer.DateInterval{
+			Start: aws.String(then.Format("2006-01-02")),
+			End:   aws.String(now.Format("2006-01-02")),
+		},
+	}
+
+	results, err := client.GetCostAndUsage(param)
+	if err != nil {
+		return err
+	}
+
+	var cost float64
+	for _, result := range results.ResultsByTime {
+		amount, _ := strconv.ParseFloat(aws.StringValue(result.Total["AmortizedCost"].Amount), 64)
+		cost += amount
+	}
+
+	b.Cost = cost
 
 	return nil
 }
