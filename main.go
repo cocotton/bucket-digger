@@ -27,10 +27,10 @@ func main() {
 	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today). Max value: 365")
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
-	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
-	flag.StringVar(&sortdes, "sortdes", "", "The field to sort (descendant) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
+	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascending) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
+	flag.StringVar(&sortdes, "sortdes", "", "The field to sort (descending) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
 	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size. Possible values: b, kb, mb, gb, tb, pb, eb")
-	flag.IntVar(&workers, "workers", 10, "The number of workers digging through S3")
+	flag.IntVar(&workers, "workers", 10, "The number of workers used to fetch the data from AWS")
 	flag.Parse()
 
 	// Validate the '-unit' flag
@@ -41,6 +41,12 @@ func main() {
 
 	// Validate the '-costperiod' flag
 	err = validateCostPeriodFlag(costPeriod)
+	if err != nil {
+		exitErrorf(err.Error())
+	}
+
+	// Validate the '-workers' flag
+	err = validateWorkersFlag(workers)
 	if err != nil {
 		exitErrorf(err.Error())
 	}
