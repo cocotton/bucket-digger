@@ -137,6 +137,35 @@ func TestValidateCostPeriodFlag(t *testing.T) {
 	}
 }
 
+func TestValidateWorkersFlag(t *testing.T) {
+	var tests = []struct {
+		workers int
+		err     bool
+	}{
+		{
+			workers: 10,
+			err:     false,
+		},
+		{
+			workers: 0,
+			err:     true,
+		},
+		{
+			workers: -10,
+			err:     true,
+		},
+	}
+
+	for _, test := range tests {
+		err := validateWorkersFlag(test.workers)
+		if err != nil && test.err == false {
+			t.Errorf("validateWorkersFlag(): FAILED, Expected no error - Received: %v", err)
+		} else if err == nil && test.err {
+			t.Errorf("validateWorkersFlag(): FAILED, Expected an error - Received: %v", err)
+		}
+	}
+}
+
 func TestFormatStorageClasses(t *testing.T) {
 	var emptyFloat float64
 	var tests = []struct {
