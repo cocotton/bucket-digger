@@ -5,6 +5,7 @@ The bucket-digger software searches for all bucket in an AWS account, or at leas
 ## Requirements
 
 * [go](https://golang.org/doc/install)
+* [aws credentials configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
 
 ## Run it
 
@@ -71,7 +72,7 @@ This is by no means a work of art. This was done in the context of an interview 
 * TDD
   * Since I did not have a clear analysis/structure at the beggining, I wrote some unit tests late in the development, which was painful
 * Unit tests
-  * I only wrote a single unit test in the s3 package, since I spent a lot of time learning how to mock AWS clients and calls (that was pretty interesting) 
+  * I only wrote a single unit test in the s3 package, since I spent a lot of time learning how to mock AWS clients and calls (that was pretty interesting)
 
 ## ~~Missing features~~ Features available in the paid version
 
@@ -80,3 +81,4 @@ This is by no means a work of art. This was done in the context of an interview 
 * Taking into account the previous file versions in the count/size calculation
 * Getting more buckets information (life cycle, cross-region replication, etc.)
 * Choosing what information/columns to output
+* Using multiple profiles in a single run
