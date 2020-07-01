@@ -2,6 +2,10 @@
 
 The bucket-digger software searches for all bucket in an AWS account, or at least the bucket that can be listed and queries by the current user. It's also possible to filter and sort the final results.
 
+Here's an example of the output generated
+
+![example_output](bucket-digger-example.png)
+
 ## Requirements
 
 * [go](https://golang.org/doc/install)
