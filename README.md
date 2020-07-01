@@ -22,25 +22,26 @@ You can also provide the following parameters
 | \-costperiod | 30      | The period, in days, over which to calculate the cost of the bucket    | Between 1 and 365 inclusively                      |
 | \-filter     |         | The field to filter on \- Must be used with \`\-regex`                 | name, storageclasses                               |
 | \-regex      |         | The regex to be applied on the filter \- Must be used with \`\-filter` |                                                    |
+| \-limit      | 100     | The maximum number of buckets that will be outputed to the console     | More than 0                                        |
 | \-sortasc    |         | The field to sort \(ascending\) the output by                          | name, region, size, files, created, modified, cost |
 | \-sortdes    |         | The field to sort \(descending\) the output by                         | name, region, size, files, created, modified, cost |
 | \-unit       | mb      | Unit used to display a bucket's size                                   | b, kb, mb, gb, tb, pb, eb                          |
 | \-workers    | 10      | The number of workers used to fetch the data from AWS                  | More than 0                                        |
-|              |         |                                                                        |                                                    |
 
 For example
 
 ```bash
-go run . -workers 20 -filter name -regex '^my.*t$' -unit gb -costperiod 60 -sortdes size 
+go run . -workers 20 -filter name -regex '^my.*t$' -unit gb -costperiod 60 -sortdes size -limit 30
 ```
 
-This command would 
+This command would
 
-* launch 20 workers (i.e. 20 buckets are being worked on at the same time) 
+* launch 20 workers (i.e. 20 buckets are being worked on at the same time)
 * fetch any bucket with a name starting with 'my' and ending with 't'
 * calculte every bucket's size in gb
 * calculte every bucket's cost over the last 60 days
 * sort the result by size, from the biggest bucket to the smallest
+* output the 30 first sorted buckets
 
 ## Built it
 
@@ -78,5 +79,4 @@ This is by no means a work of art. This was done in the context of an interview 
 * Sorting by encryption type
 * Taking into account the previous file versions in the count/size calculation
 * Getting more buckets information (life cycle, cross-region replication, etc.)
-* Limiting the number of outputed lines
 * Choosing what information/columns to output

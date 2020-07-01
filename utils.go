@@ -60,6 +60,14 @@ func validateFilterFlag(filter string) error {
 	return fmt.Errorf("Error - '%v' is not a valid '-filter' value", filter)
 }
 
+// validateLimitFlag validates that the provided limit is bigger than 0
+func validateLimitFlag(limit int) error {
+	if limit < 1 {
+		return fmt.Errorf("Error - '%v' is not a valid '-limit' value, it must be bigger than 0", limit)
+	}
+	return nil
+}
+
 // validateSortFlag validates that the provided sort flag exists in the validSortFlags slice
 func validateSortFlag(sortFlag string) error {
 	for _, validSortFlag := range validSortFlags {

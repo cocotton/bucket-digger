@@ -22,11 +22,12 @@ const defaultRegion = "us-east-1"
 func main() {
 	// Initialize the cli flags
 	var filter, regex, sortasc, sortdes, sizeUnit string
-	var costPeriod, workers int
+	var costPeriod, limit, workers int
 
 	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today). Max value: 365")
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
+	flag.IntVar(&limit, "limit", 100, "The maximum number of buckets that will be outputed to the console")
 	flag.StringVar(&sortasc, "sortasc", "", "The field to sort (ascending) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
 	flag.StringVar(&sortdes, "sortdes", "", "The field to sort (descending) the output by. Possible values: "+strings.Join(validSortFlags, ", "))
 	flag.StringVar(&sizeUnit, "unit", "mb", "Unit used to display a bucket's size. Possible values: b, kb, mb, gb, tb, pb, eb")
@@ -41,6 +42,12 @@ func main() {
 
 	// Validate the '-costperiod' flag
 	err = validateCostPeriodFlag(costPeriod)
+	if err != nil {
+		exitErrorf(err.Error())
+	}
+
+	// Validate the '-limit' flag
+	err = validateLimitFlag(limit)
 	if err != nil {
 		exitErrorf(err.Error())
 	}
@@ -63,10 +70,10 @@ func main() {
 
 			compiledRegex, err = regexp.Compile(regex)
 			if err != nil {
-				exitErrorf("Unable to compile the provided regex, %v", err)
+				exitErrorf("Error - unable to compile the provided regex, %v", err)
 			}
 		} else {
-			exitErrorf("The -filter and -regex must be used together")
+			exitErrorf("Error - the -filter and -regex must be used together")
 		}
 	}
 
@@ -90,7 +97,7 @@ func main() {
 		Region: aws.String(defaultRegion)},
 	)
 	if err != nil {
-		exitErrorf("Unable to initialize the AWS session, %v", err)
+		exitErrorf("Error - unable to initialize the AWS session, %v", err)
 	}
 
 	// Initialize the S3 client in the defaultRegion
@@ -101,7 +108,7 @@ func main() {
 	// List all the S3 buckets
 	buckets, err := s3.ListBuckets(s3Client)
 	if err != nil {
-		exitErrorf("Unable to list the buckets, %v", err)
+		exitErrorf("Error - unable to list the buckets, %v", err)
 	}
 
 	// Make a map containing an S3 client for every bucket's region
@@ -140,7 +147,7 @@ func main() {
 				// Skip the bucket if an error is returned. This is because without its region, we might not be able to fetch its objects and will end up with bad informations
 				err := bucket.SetBucketRegion(s3Client)
 				if err != nil {
-					printErrorf("Unable to get the region for bucket %v, skipping it", bucket.Name)
+					printErrorf("Error - unable to get the region for bucket %v, skipping it", bucket.Name)
 					continue
 				} else {
 					// Create a client for a region not found in clientMap and add it in clientMap
@@ -149,7 +156,7 @@ func main() {
 							Region: aws.String(bucket.Region)},
 						)
 						if err != nil {
-							printErrorf("Unable to initialize the AWS session, %v", err)
+							printErrorf("Error - unable to initialize the AWS session, %v", err)
 						}
 						regionClient := awss3.New(regionSess)
 						clientMap[bucket.Region] = regionClient
@@ -160,7 +167,7 @@ func main() {
 				// Set the bucket objects metrics (e.g. objects count, total size)
 				err = bucket.SetBucketObjectsMetrics(clientMap[bucket.Region])
 				if err != nil {
-					printErrorf("Unable to get the objects metrics for bucket %v, skipping it", bucket.Name)
+					printErrorf("Error - unable to get the objects metrics for bucket %v, skipping it", bucket.Name)
 				}
 
 				// Check if the current bucket has a storage class matching the regex used to filter the buckets
@@ -235,10 +242,10 @@ func main() {
 		}
 	}
 
-	// Output the buckets to the terminal
+	// Output the buckets to the terminal, up to the '-limit' flag
 	t := tabby.New()
 	t.AddHeader("NAME", "REGION", "COST $USD("+strconv.Itoa(costPeriod)+"days)", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
-	for _, bucket := range filteredBuckets {
+	for index, bucket := range filteredBuckets {
 		t.AddLine(
 			bucket.Name,
 			bucket.Region,
@@ -249,6 +256,9 @@ func main() {
 			bucket.CreationDate.Format("02-01-2006"),
 			bucket.LastModified.Format("02-01-2006"),
 		)
+		if index >= limit-1 {
+			break
+		}
 	}
 	t.Print()
 }

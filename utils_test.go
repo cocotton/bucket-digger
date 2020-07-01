@@ -137,6 +137,35 @@ func TestValidateCostPeriodFlag(t *testing.T) {
 	}
 }
 
+func TestValidateLimitFlag(t *testing.T) {
+	var tests = []struct {
+		limit int
+		err   bool
+	}{
+		{
+			limit: 10,
+			err:   false,
+		},
+		{
+			limit: 0,
+			err:   true,
+		},
+		{
+			limit: -10,
+			err:   true,
+		},
+	}
+
+	for _, test := range tests {
+		err := validateLimitFlag(test.limit)
+		if err != nil && test.err == false {
+			t.Errorf("validateLimitFlag(): FAILED, Expected no error - Received: %v", err)
+		} else if err == nil && test.err {
+			t.Errorf("validateLimitFlag(): FAILED, Expected an error - Received: %v", err)
+		}
+	}
+}
+
 func TestValidateWorkersFlag(t *testing.T) {
 	var tests = []struct {
 		workers int
