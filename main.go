@@ -191,6 +191,8 @@ func main() {
 			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].CreationDate.Before(filteredBuckets[j].CreationDate) })
 		case "modified":
 			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].LastModified.Before(filteredBuckets[j].LastModified) })
+		case "cost":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Cost < filteredBuckets[j].Cost })
 		}
 	} else if len(sortdes) > 0 {
 		switch sortdes {
@@ -206,6 +208,8 @@ func main() {
 			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].CreationDate.After(filteredBuckets[j].CreationDate) })
 		case "modified":
 			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].LastModified.After(filteredBuckets[j].LastModified) })
+		case "cost":
+			sort.SliceStable(filteredBuckets, func(i, j int) bool { return filteredBuckets[i].Cost > filteredBuckets[j].Cost })
 		}
 	}
 

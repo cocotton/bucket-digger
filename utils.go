@@ -23,7 +23,7 @@ var sizeMap = map[string]float64{
 var validFilterFlags = []string{"name", "storageclasses"}
 
 // validSortFlags is a slice containing the valid sorting flags that can be passed as cli auguments with '-sort'
-var validSortFlags = []string{"name", "region", "size", "files", "created", "modified"}
+var validSortFlags = []string{"name", "region", "size", "files", "created", "modified", "cost"}
 
 // exitErrorf receives an error string as well as any additional arguments, prints them all to Stderr and exit with code 1
 func exitErrorf(msg string, args ...interface{}) {
