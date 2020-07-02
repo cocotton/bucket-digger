@@ -249,7 +249,7 @@ func main() {
 	t.AddHeader("NAME", "REGION", "COST $USD("+strconv.Itoa(costPeriod)+"days)", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for index, bucket := range filteredBuckets {
 		var cost string
-		if bucket.Cost == -1 {
+		if bucket.Cost <= 0 {
 			cost = "N/A"
 		} else {
 			cost = fmt.Sprintf("%f", bucket.Cost)
