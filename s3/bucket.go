@@ -61,7 +61,7 @@ func (b *Bucket) SetBucketRegion(client s3iface.S3API) error {
 
 // SetBucketObjectsMetrics sets the metrics related to a bucket's objects
 func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
-	params := &s3.ListObjectsInput{
+	params := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Name),
 	}
 
@@ -70,8 +70,8 @@ func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
 	var lastModified time.Time
 	storageClasses := map[string]float64{}
 
-	err := client.ListObjectsPages(params,
-		func(page *s3.ListObjectsOutput, last bool) bool {
+	err := client.ListObjectsV2Pages(params,
+		func(page *s3.ListObjectsV2Output, last bool) bool {
 			for _, obj := range page.Contents {
 				objects = append(objects, obj)
 				sizeBytes += aws.Int64Value(obj.Size)
