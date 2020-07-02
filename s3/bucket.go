@@ -62,7 +62,8 @@ func (b *Bucket) SetBucketRegion(client s3iface.S3API) error {
 // SetBucketObjectsMetrics sets the metrics related to a bucket's objects
 func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
 	params := &s3.ListObjectsV2Input{
-		Bucket: aws.String(b.Name),
+		Bucket:  aws.String(b.Name),
+		MaxKeys: aws.Int64(1000000),
 	}
 
 	var objects []*s3.Object
@@ -131,6 +132,7 @@ func (b *Bucket) SetBucketCostOverPeriod(client costexploreriface.CostExplorerAP
 
 	results, err := client.GetCostAndUsage(param)
 	if err != nil {
+		b.Cost = -1
 		return err
 	}
 

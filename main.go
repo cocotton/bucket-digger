@@ -148,7 +148,7 @@ func main() {
 				// Skip the bucket if an error is returned. This is because without its region, we might not be able to fetch its objects and will end up with bad informations
 				err := bucket.SetBucketRegion(s3Client)
 				if err != nil {
-					printErrorf("Error - unable to get the region for bucket %v, skipping it", bucket.Name)
+					printErrorf("Error - unable to get the region for bucket %v, skipping it. Error: %v", bucket.Name, err)
 					continue
 				} else {
 					// Create a client for a region not found in clientMap and add it in clientMap
@@ -157,7 +157,7 @@ func main() {
 							Region: aws.String(bucket.Region)},
 						)
 						if err != nil {
-							printErrorf("Error - unable to initialize the AWS session, %v", err)
+							printErrorf("Error - unable to initialize the AWS session. Error: %v", err)
 						}
 						regionClient := awss3.New(regionSess)
 						clientMap[bucket.Region] = regionClient
@@ -168,7 +168,8 @@ func main() {
 				// Set the bucket objects metrics (e.g. objects count, total size)
 				err = bucket.SetBucketObjectsMetrics(clientMap[bucket.Region])
 				if err != nil {
-					printErrorf("Error - unable to get the objects metrics for bucket %v, skipping it", bucket.Name)
+					printErrorf("Error - unable to get the objects metrics for bucket %v, skipping it. Error: %v", bucket.Name, err)
+					continue
 				}
 
 				// Check if the current bucket has a storage class matching the regex used to filter the buckets
@@ -188,7 +189,7 @@ func main() {
 				// Set the bucket's cost over the provided period (e.g. 30 days)
 				err = bucket.SetBucketCostOverPeriod(cExplorerClient, costPeriod, costTag)
 				if err != nil {
-					printErrorf("Error - Unable to get cost for bucket: %v, error: %v", bucket.Name, err)
+					printErrorf("Error - Unable to get cost for bucket: %v. Error: %v", bucket.Name, err)
 				}
 
 				// Add the bucket to the list that will be used to output the results in the console
@@ -247,10 +248,17 @@ func main() {
 	t := tabby.New()
 	t.AddHeader("NAME", "REGION", "COST $USD("+strconv.Itoa(costPeriod)+"days)", "TOTAL SIZE ("+strings.ToUpper(sizeUnit)+")", "NUMBER OF FILES", "STORAGE CLASSES", "CREATED ON", "LAST MODIFIED")
 	for index, bucket := range filteredBuckets {
+		var cost string
+		if bucket.Cost == -1 {
+			cost = "N/A"
+		} else {
+			cost = fmt.Sprintf("%f", bucket.Cost)
+		}
+
 		t.AddLine(
 			bucket.Name,
 			bucket.Region,
-			fmt.Sprintf("%f", bucket.Cost),
+			cost,
 			fmt.Sprintf("%.2f", convertSize(bucket.SizeBytes, sizeUnit)),
 			bucket.ObjectCount,
 			formatStorageClasses(bucket.StorageClassesStats),
