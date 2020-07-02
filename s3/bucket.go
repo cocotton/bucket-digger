@@ -62,8 +62,7 @@ func (b *Bucket) SetBucketRegion(client s3iface.S3API) error {
 // SetBucketObjectsMetrics sets the metrics related to a bucket's objects
 func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
 	params := &s3.ListObjectsInput{
-		Bucket:  aws.String(b.Name),
-		MaxKeys: aws.Int64(400),
+		Bucket: aws.String(b.Name),
 	}
 
 	var objects []*s3.Object
