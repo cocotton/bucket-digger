@@ -31,7 +31,7 @@ type Bucket struct {
 func ListBuckets(client s3iface.S3API) ([]*Bucket, error) {
 	var buckets []*Bucket
 
-	result, err := client.ListBuckets(nil)
+	result, err := client.ListBuckets(&s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
 	}

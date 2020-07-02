@@ -98,7 +98,7 @@ func main() {
 		Region: aws.String(defaultRegion)},
 	)
 	if err != nil {
-		exitErrorf("Error - unable to initialize the AWS session, %v", err)
+		exitErrorf("Error - unable to initialize the AWS session. Error:  %v", err)
 	}
 
 	// Initialize the S3 client in the defaultRegion
@@ -109,7 +109,7 @@ func main() {
 	// List all the S3 buckets
 	buckets, err := s3.ListBuckets(s3Client)
 	if err != nil {
-		exitErrorf("Error - unable to list the buckets, %v", err)
+		exitErrorf("Error - unable to list the buckets. Error:  %v", err)
 	}
 
 	// Make a map containing an S3 client for every bucket's region

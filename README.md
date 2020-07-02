@@ -49,7 +49,7 @@ This command would
 * sort the result by size, from the biggest bucket to the smallest
 * output the 30 first sorted buckets
 
-## Built it
+## Build it
 
 If would you rather build the code into an executable file, run the following command
 
@@ -69,9 +69,9 @@ This is by no means a work of art. This was done in the context of an interview 
 
 * Better analysis
   * Since I was limited in time and hadn't wrote Go in a whole year, I didn't really take the time to perform a solid analysis of the problem and tools to solve it.
-* Better code structure  
+* Better code structure
   * Without a solid analysis base, I started wandering left and right. I think it shows in the code structure. I also don't really like how the methods are separated in the s3 package and I don't like that they do more than 1 thing (e.g. Set* methods actually Get and then Set)
-* Better tooling  
+* Better tooling
   * I opted for the basic `flag` package to handle the cli flags, but it would have been nice to check for a more powerfull one that might do validation itself and let me build up better flags (thinking about the dirty -sortasc and -sortdes)
   * I wish I would have taken more time to really get comfortable with the AWS SDK. I feel I'm doing weird stuff and waisting resources because of that. For example, the way I filter the results really feels suboptimal. Maybe there's a way to use the filters directly when querying AWS instead of receiving a full set of buckets and then filtering
 * TDD
