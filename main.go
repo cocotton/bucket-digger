@@ -21,10 +21,11 @@ const defaultRegion = "us-east-1"
 
 func main() {
 	// Initialize the cli flags
-	var filter, regex, sortasc, sortdes, sizeUnit string
+	var costTag, filter, regex, sortasc, sortdes, sizeUnit string
 	var costPeriod, limit, workers int
 
 	flag.IntVar(&costPeriod, "costperiod", 30, "The period (in days) over which to calculate the cost of the bucket (e.g. from 30 days ago up to today). Max value: 365")
+	flag.StringVar(&costTag, "costtag", "name", "The cost allocation tag")
 	flag.StringVar(&filter, "filter", "", "The field to filter on. Possible values: "+strings.Join(validFilterFlags, ", "))
 	flag.StringVar(&regex, "regex", "", "The regex to be applied on the filter")
 	flag.IntVar(&limit, "limit", 100, "The maximum number of buckets that will be outputed to the console")
@@ -185,7 +186,7 @@ func main() {
 				}
 
 				// Set the bucket's cost over the provided period (e.g. 30 days)
-				err = bucket.SetBucketCostOverPeriod(cExplorerClient, costPeriod)
+				err = bucket.SetBucketCostOverPeriod(cExplorerClient, costPeriod, costTag)
 				if err != nil {
 					printErrorf("Error - Unable to get cost for bucket: %v, error: %v", bucket.Name, err)
 				}

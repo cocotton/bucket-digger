@@ -101,7 +101,7 @@ func (b *Bucket) SetBucketObjectsMetrics(client s3iface.S3API) error {
 }
 
 // SetBucketCostOverPeriod sets the bucket's cost from now up to X days ago
-func (b *Bucket) SetBucketCostOverPeriod(client costexploreriface.CostExplorerAPI, period int) error {
+func (b *Bucket) SetBucketCostOverPeriod(client costexploreriface.CostExplorerAPI, period int, tag string) error {
 	now := time.Now().AddDate(0, 0, 1)
 	then := now.AddDate(0, 0, -period)
 
@@ -116,7 +116,7 @@ func (b *Bucket) SetBucketCostOverPeriod(client costexploreriface.CostExplorerAP
 				},
 				{
 					Tags: &costexplorer.TagValues{
-						Key:    aws.String("name"),
+						Key:    aws.String(tag),
 						Values: []*string{aws.String(b.Name)},
 					},
 				},
